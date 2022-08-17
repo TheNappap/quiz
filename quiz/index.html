@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head> 
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+	<meta charset="utf-8">
+	<title>Quiz</title>
+	<link rel="stylesheet" type="text/css" href="style.css">
+	<script type="module" src="main.js"></script>	
+</head>
+
+<body>
+	<div id="frame">
+		<h1 id="title"></h1>
+		<p id="user"></p>
+		<div id="sub_frame">
+			<div id="image"></div>
+			<div id="title_frame">
+				<h2 id="sub_title"></h2>
+				<p id="q_nr"></p>
+			</div>
+			<div id="login_frame" style="display:none">
+				<input type="text" id="name" class="login_frame" placeholder="username" />
+				<button id="login" class="login_frame" onclick="login()">Enter</button>
+			</div>
+			<div id="main_frame"></div>
+			<div id="error"></div>
+			<div id="info"></div>
+		</div>
+	</div>
+</body>
+</html>

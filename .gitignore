@@ -1,0 +1,15 @@
+/target
+
+mathijs_quiz/
+
+.backup
+
+.backup_quiz
+
+TODO.txt
+
+Cargo.lock
+
+quiz.exe
+
+quiz.zip

@@ -1,0 +1,79 @@
+html,body,div,span,h1,h2,h3,h4,h5,h6,p,code,small,strike,strong,sub,sup,b,u,i{
+	border:0;font-size:100%;font:inherit;vertical-align:baseline;margin:0;padding:0;
+}
+body {
+	background-color: #bbf3bd;
+}
+table{
+	background-color:#d8eed9;
+	border: 3px solid black;
+	text-align:center;
+	border-collapse: collapse;
+}
+th{
+	font:normal bold 2em/1.8em 'Verdana', sans-serif;
+	background-color:#d8eed9;
+	border-bottom: 1px solid black;
+	border-left: 1px solid black;
+}
+td{
+	font:normal 2em/1.8em 'Arial', sans-serif;
+}
+article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section{
+	display:block;
+} 
+body{
+	line-height:1; font:normal 0.9em/1em 'Muli', sans-serif;
+} 
+h1{
+	font:normal bold 2em/1.8em 'Courier', sans-serif;text-align:center;background:#4CAF50;color:white;padding:0 15px;width:auto
+}
+h2{
+	display:table;font:italic bold 1.3em/1.2em sans-serif;padding:5px 15px 15px;margin-left:auto;margin-right:auto;
+}
+div#frame{
+	display:block;margin:0;height:100%
+} 
+div#sub_frame,div#title_frame,div#login_frame,div#main_frame,div#image,div#error,div#info{
+	padding:20px;display:table;margin-left:auto;margin-right:auto;width:fit-content;
+}
+div#login_frame{
+	display:none;
+}
+div#error{
+	color:red;
+}
+div#info{
+	color:blue;
+}
+p#user,#title_frame p {
+	color:grey;
+}
+#title_frame h2, #title_frame p  {
+    display: inline;
+}
+
+button {
+	background-color: #4CAF50;
+	border: none;
+	color: white;
+    font-size:20px;
+	cursor: pointer;
+}
+input[type="text"] {
+    font-size:20px;
+}
+input[type="radio"] {
+    -webkit-transform: scale(1.5); /* Chrome, Safari, Opera */
+    transform: scale(1.5);
+	cursor: pointer;
+}
+input[type="checkbox"],input[type="radio"] {
+	cursor: pointer;
+}
+textarea {
+	width: 80vw; height: 30vh
+}
+img {
+	width: auto; height: 30vh
+}
