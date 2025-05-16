@@ -75,7 +75,7 @@ async fn read<'a>() -> Result<ArgMatches<'a>,String> {
         .map_err(|e|e.message)
 }
 
-pub async fn main(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, ) {
+pub async fn main(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>) {
     loop{
         quiz_command_prefix!();
         match read().await.as_ref().map(|m|m.subcommand()) {
@@ -97,7 +97,7 @@ pub async fn main(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, ) {
             _ => unreachable!()
         }
     }
-    sse.write().await.close();
+    sse.write().await.close().await;
     println!("Closing server...");
 }
 

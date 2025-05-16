@@ -9,6 +9,8 @@ export function onEventError(ev) {
 export function onEventMessage(ev) {
 	onError("");
 	onInfo("");
+	console.log("Received event: " + JSON.stringify(ev));
+
 	document.getElementById("image").innerHTML = "";
 	var data = JSON.parse(ev.data);
 	if (data.Lobby) {
@@ -20,8 +22,7 @@ export function onEventMessage(ev) {
 	} else if (data == "Finished") {
 		onFinished();
 	} else {
-		console.log("Unknown event: ");
-		console.log(ev.data);
+		console.log("Unknown event: " + ev.data);
 	}
 }
 

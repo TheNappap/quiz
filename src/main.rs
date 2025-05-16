@@ -8,7 +8,9 @@ mod quiz_state;
 mod question;
 
 use clap::{App,Arg};
-use std::net::SocketAddr;
+use sse::SSE;
+use tokio::sync::RwLock;
+use std::{net::SocketAddr, sync::Arc};
 
 fn get_state(root: &str) -> Result<quiz_state::QuizState,String> {
 	let path = root.to_string();
@@ -69,7 +71,14 @@ async fn main() {
         Ok((state,socket)) => {
             println!("Starting quiz server in: {:?}", state.root());
             println!("Socket: {:?}", socket);
-            service::main(state,socket).await;
+			let state = Arc::new(RwLock::new(state));
+			let sse = Arc::new(RwLock::new(SSE::new()));
+			let state_clone = state.clone();
+			let sse_clone = sse.clone();
+			tokio::task::spawn(async move {
+				service::main(state.clone(), sse.clone(), socket).await;
+			});
+			cli::main(state_clone, sse_clone).await;
         },
         Err(e) => {
             println!("{}", e);

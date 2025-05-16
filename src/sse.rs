@@ -1,8 +1,11 @@
 
-use hyper::body::{Sender,Bytes};
+use hyper::body::{Bytes, Frame};
+use tokio::sync::mpsc;
+
+type Sender = mpsc::Sender<http::Result<Frame<Bytes>>>;
 
 pub struct SSE {
-    clients: Vec<hyper::body::Sender>,
+    clients: Vec<Sender>,
     last_event: String
 }
 
@@ -24,7 +27,7 @@ impl SSE {
         let bytes: Bytes = format!("data:{}\n\n", event).into();
         let mut sent = futures::future::join_all(self.clients.iter_mut().map(|client| {
             let bytes = bytes.slice(..);
-            async move { client.send_data(bytes).await.is_ok() }
+            async move { client.send(Ok(Frame::data(bytes))).await.is_ok() }
         })).await.into_iter();
         self.clients.retain(|_| sent.next().unwrap());
         self.clients.len()
@@ -34,9 +37,7 @@ impl SSE {
         self.last_event.clone()
     }
     
-    pub fn close(&mut self) {
-        for client in std::mem::replace(&mut self.clients, Vec::new()) {
-            client.abort();
-        }
+    pub async fn close(&mut self) {
+        // TODO send end quiz final event
     }
 }
