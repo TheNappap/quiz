@@ -7,10 +7,10 @@ mod sse;
 mod quiz_state;
 mod question;
 
-use clap::{App,Arg};
 use sse::SSE;
 use tokio::sync::RwLock;
 use std::{net::SocketAddr, sync::Arc};
+use clap::Parser;
 
 fn get_state(root: &str) -> Result<quiz_state::QuizState,String> {
 	let path = root.to_string();
@@ -22,7 +22,7 @@ fn get_state(root: &str) -> Result<quiz_state::QuizState,String> {
 		})
 }
 
-fn get_socket(ip: Option<&str>, port: Option<&str>) -> Result<SocketAddr,String> {
+fn get_socket(ip: Option<String>, port: Option<String>) -> Result<SocketAddr,String> {
 	let ip = if ip.is_none() {
 			let ip : Result<_,String> = local_ipaddress::get()
 				.ok_or("Could not retrieve local ip address\n".into());
@@ -33,7 +33,7 @@ fn get_socket(ip: Option<&str>, port: Option<&str>) -> Result<SocketAddr,String>
 				else { ip.to_string() }
 			) 
 		};
-	let port = port.or(Some("80")).unwrap();
+	let port = port.unwrap_or("80".into());
 	
 	let ip = ip.clone().unwrap().parse()
 		.map_err(|_| format!("Could not parse ip address: {:?}", ip))?;
@@ -42,26 +42,27 @@ fn get_socket(ip: Option<&str>, port: Option<&str>) -> Result<SocketAddr,String>
 	Ok(SocketAddr::new(ip,port))
 }
 
+/// A simple quiz server app
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
+pub struct AppArgs {
+    /// The root of the server, a quiz.config (json) file should be located here.
+    #[arg(name = "ROOT")]
+    root: String,
+    /// The ip address to bind to: Ipv4, Ipv6 or localhost.
+    #[arg(long = "ip")]
+    ip: Option<String>,
+    /// The port to bind to.
+    #[arg(long = "port")]
+    port: Option<String>,
+}
+
 fn init() -> Result<(quiz_state::QuizState,SocketAddr),String> {
-    let matches = App::new("Quiz")
-        .version(env!("CARGO_PKG_VERSION"))
-        .arg(Arg::with_name("ROOT")
-            .required(true)
-            .help("The root of the server, a quiz.config (json) file should be located here."))
-		.arg(Arg::with_name("ip")
-			.long("ip")
-			.takes_value(true)
-			.help("The ip address to bind to: Ipv4, Ipv6 or localhost."))
-		.arg(Arg::with_name("port")
-			.long("port")
-			.takes_value(true)
-			.help("The port to bind to."))
-        .get_matches_safe()
-		.map_err(|e|e.message)?;
+	let args = AppArgs::parse();
 
 	Ok((
-		get_state(matches.value_of("ROOT").unwrap())?, 
-		get_socket(matches.value_of("ip"),matches.value_of("port"))?
+		get_state(&args.root)?, 
+		get_socket(args.ip,args.port)?
 	))
 }
 

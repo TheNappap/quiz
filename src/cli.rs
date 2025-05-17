@@ -1,4 +1,12 @@
 
+use clap::{Parser, Subcommand};
+use std::sync::Arc;
+use tabular::{Table, Row};
+use tokio::sync::RwLock;
+use tokio::io::{self, BufReader, AsyncBufReadExt};
+use crate::quiz_state::{Ranking,Score,QuizState,QuizStatus,Event};
+use crate::sse::SSE;
+
 macro_rules! quiz_command_prefix {
     () => ({
         use std::io::Write;
@@ -15,86 +23,92 @@ macro_rules! quiz_print {
     })
 }
 
-use clap::{App,AppSettings,Arg,ArgMatches,SubCommand};
-use std::sync::Arc;
-use tabular::{Table, Row};
-use tokio::sync::RwLock;
-use tokio::io::{self, BufReader, AsyncBufReadExt};
-use crate::quiz_state::{Ranking,Score,QuizState,QuizStatus,Event};
-use crate::sse::SSE;
+/// A simple quiz server app
+#[derive(Parser, Debug)]
+#[command(author,version, about,
+    no_binary_name=true,
+    subcommand_required=true,
+    infer_subcommands=true,
+)]
+pub struct QuizArgs {
+    #[command(subcommand)]
+    command: QuizCommand,
+}
 
-async fn read<'a>() -> Result<ArgMatches<'a>,String> {
-    let mut s = String::new();
-    BufReader::new(io::stdin()).read_line(&mut s).await.expect("Did not enter a correct string");
-    App::new("Quiz command>")
-        .setting(AppSettings::NoBinaryName)
-        .setting(AppSettings::DisableVersion)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .setting(AppSettings::VersionlessSubcommands)
-        .setting(AppSettings::InferSubcommands)
-        .subcommand(SubCommand::with_name("exit")
-            .about("Closes the quiz server."))
-        .subcommand(SubCommand::with_name("status")
-            .about("Prints the current status of the quiz."))
-        .subcommand(SubCommand::with_name("users")
-            .about("Prints the list of users."))
-        .subcommand(SubCommand::with_name("questions")
-            .about("Prints the list of questions."))
-        .subcommand(SubCommand::with_name("start")
-            .about("Starts the quiz and sets the status to the first question."))
-        .subcommand(SubCommand::with_name("next")
-            .about("Sets the status to the next question or finishes the quiz if there are no more questions."))
-        .subcommand(SubCommand::with_name("lock")
-            .about("Locks the current question and prevents users from submitting answers. (To unlock again, use `redo`)"))
-        .subcommand(SubCommand::with_name("redo")
-            .about("Redo a question. Give a question id or use the current question.")
-            .arg(Arg::with_name("id")
-                    .help("Id of the question to redo.")))
-        .subcommand(SubCommand::with_name("ranking")
-            .about("Print the current ranking."))
-        .subcommand(SubCommand::with_name("share")
-            .about("Share the current ranking to all users."))
-        .subcommand(SubCommand::with_name("qsumm")
-            .about("Question summary. Give a question id or use the current question.")
-            .arg(Arg::with_name("id")
-                    .help("Id of the question to summarize.")))
-        .subcommand(SubCommand::with_name("grade")
-            .about("Grade question. Give a question id or use the current question.")
-            .arg(Arg::with_name("id")
-                    .help("Id of the question to grade.")))
-        .subcommand(SubCommand::with_name("backup")
-            .about("Backup the current state of the quiz.")
-            .arg(Arg::with_name("file")
-                    .help("File to write backup to. (default:\".backup_quiz\")")))
-        .subcommand(SubCommand::with_name("import")
-            .about("Import a backup state of a quiz.")
-            .arg(Arg::with_name("file")
-                    .help("File to read backup from.")
-                    .required(true)))
-        .get_matches_from_safe(s.trim().split_whitespace().collect::<Vec<_>>())
-        .map_err(|e|e.message)
+#[derive(Subcommand, Debug)]
+enum QuizCommand {
+    /// Closes the quiz server.
+    Exit,
+    /// Prints the current status of the quiz.
+    Status,
+    /// Prints the list of users.
+    Users,
+    /// Prints the list of questions.
+    Questions,
+    /// Starts the quiz and sets the status to the first question.
+    Start,
+    /// Sets the status to the next question or finishes the quiz if there are no more questions.
+    Next,
+    /// Locks the current question and prevents users from submitting answers. (To unlock again, use `redo`)
+    Lock,
+    /// Redo a question. Give a question id or use the current question.
+    Redo{
+        /// Id of the question to redo.
+        id: Option<usize>
+    },
+    /// Print the current ranking.
+    Ranking,
+    /// Share the current ranking to all users.
+    Share,
+    /// Question summary. Give a question id or use the current question.
+    Qsumm{
+        /// Id of the question to summarize.
+        id: Option<usize>
+    },
+    /// Grade question. Give a question id or use the current question.
+    Grade{
+        /// Id of the question to grade.
+        id: Option<usize>
+    },
+    /// Backup the current state of the quiz.
+    Backup{
+        // File to write backup to.
+        #[arg(help="File to write backup to.", default_value_t = String::from(".backup_quiz"))]
+        file: String
+    },
+    /// Import a backup state of a quiz.
+    Import{
+        /// File to read backup from.
+        file: String
+    },
 }
 
 pub async fn main(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>) {
     loop{
         quiz_command_prefix!();
-        match read().await.as_ref().map(|m|m.subcommand()) {
-            Ok(("exit", Some(_)))       => break,
-            Ok(("status", Some(_)))     => status(state.clone()).await,
-            Ok(("questions", Some(_)))  => questions(state.clone()).await,
-            Ok(("users", Some(_)))      => users(state.clone()).await,
-            Ok(("start", Some(_)))      => start(state.clone(),sse.clone()).await,
-            Ok(("next", Some(_)))       => next(state.clone(),sse.clone()).await,
-            Ok(("lock", Some(_))) 		=> lock_question(state.clone()).await,
-            Ok(("redo", Some(matches))) => redo_question(state.clone(),sse.clone(), matches).await,
-            Ok(("ranking", Some(_)))    => ranking(state.clone()).await,
-            Ok(("share", Some(_)))      => share_ranking(state.clone(),sse.clone()).await,
-            Ok(("qsumm", Some(matches)))=> qsumm(state.clone(), matches, false).await,
-            Ok(("grade", Some(matches)))=> qsumm(state.clone(), matches, true).await,
-            Ok(("backup", Some(matches)))=> backup(state.clone(), matches).await,
-            Ok(("import", Some(matches)))=> import_backup(state.clone(),sse.clone(), matches).await,
-            Err(e) => println!("{}",e),
-            _ => unreachable!()
+        let mut input = String::new();
+        BufReader::new(io::stdin()).read_line(&mut input).await.expect("Did not enter a correct string");
+        let quiz_args = QuizArgs::try_parse_from(input.trim().split_whitespace());
+        let quiz_args = match quiz_args {
+            Ok(args) =>  args,
+            Err(e) => { println!("{}",e); continue; }
+        };
+
+        match quiz_args.command {
+            QuizCommand::Exit       => break,
+            QuizCommand::Status       => status(state.clone()).await,
+            QuizCommand::Questions       => questions(state.clone()).await,
+            QuizCommand::Users       => users(state.clone()).await,
+            QuizCommand::Start       => start(state.clone(),sse.clone()).await,
+            QuizCommand::Next       => next(state.clone(),sse.clone()).await,
+            QuizCommand::Lock       => lock_question(state.clone()).await,
+            QuizCommand::Redo { id } => redo_question(state.clone(),sse.clone(), id).await,
+            QuizCommand::Ranking    => ranking(state.clone()).await,
+            QuizCommand::Share      => share_ranking(state.clone(),sse.clone()).await,
+            QuizCommand::Qsumm { id } => qsumm(state.clone(), id, false).await,
+            QuizCommand::Grade { id } => qsumm(state.clone(), id, true).await,
+            QuizCommand::Backup { file } => backup(state.clone(), file).await,
+            QuizCommand::Import { file } => import_backup(state.clone(),sse.clone(), file).await,
         }
     }
     sse.write().await.close().await;
@@ -203,8 +217,8 @@ async fn lock_question(state: Arc<RwLock<QuizState>>) {
     state.write().await.lock_question();
 }
 
-async fn redo_question<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, args: &ArgMatches<'a>) {
-    let index = match args.value_of("id").and_then(|o|o.parse::<usize>().ok()) {
+async fn redo_question<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, id: Option<usize>) {
+    let index = match id {
         Some(index) => index,
         None => if let QuizStatus::Question{id,..} = state.read().await.status() { *id } 
                 else { return }
@@ -217,7 +231,7 @@ async fn redo_question<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>,
     }
 }
 
-async fn share_ranking(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, ) {
+async fn share_ranking(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>) {
     if state.read().await.status().is_lobby() { return }
     if !all_answered_current_question(state.clone()).await {
         return
@@ -247,8 +261,8 @@ async fn ranking(state: Arc<RwLock<QuizState>>) {
     println!("{}", table);
 }
 
-async fn qsumm<'a>(state: Arc<RwLock<QuizState>>, args: &ArgMatches<'a>, do_grade: bool) {
-    let index = match args.value_of("id").and_then(|o|o.parse::<usize>().ok()) {
+async fn qsumm<'a>(state: Arc<RwLock<QuizState>>, id: Option<usize>, do_grade: bool) {
+    let index = match id {
         Some(index) => index,
         None => if let Some(index) = state.read().await.status().question() { index } 
                 else { return }
@@ -308,16 +322,16 @@ async fn grade(state: Arc<RwLock<QuizState>>,user: &String, question: &String, r
     }
 }
 
-async fn backup<'a>(state: Arc<RwLock<QuizState>>, args: &ArgMatches<'a>) {
-    let path = args.value_of("file").unwrap_or(".backup_quiz").into();
+async fn backup<'a>(state: Arc<RwLock<QuizState>>, file: String) {
+    let path = file.into();
     match state.read().await.backup(&path) {
         Ok(_) => println!("Backup created: {:?}", path),
         Err(e) => println!("An error occurred while trying to backup: {:?}", e),
     }
 }
 
-async fn import_backup<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, args: &ArgMatches<'a>) {
-    let path = args.value_of("file").unwrap().into();
+async fn import_backup<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, file: String) {
+    let path = file.into();
     match state.write().await.import_backup(&path) {
         Ok(ev) => { 
             println!("Succesfully imported: {:?}", path);
