@@ -21,6 +21,8 @@ export function onEventMessage(ev) {
 		onRanking(data.Ranking);
 	} else if (data == "Finished") {
 		onFinished();
+	} else if (data == "Closed") {
+		onClosed();
 	} else {
 		console.log("Unknown event: " + ev.data);
 	}
@@ -198,6 +200,12 @@ function onRanking(ranking) {
 
 function onFinished() {
 	document.getElementById("sub_title").innerHTML = "No more questions, waiting for host to share ranking...";
+	document.getElementById("q_nr").innerHTML = "";
+	document.getElementById("main_frame").innerHTML = "";
+}
+
+function onClosed() {
+	document.getElementById("sub_title").innerHTML = "Quiz server has been closed...";
 	document.getElementById("q_nr").innerHTML = "";
 	document.getElementById("main_frame").innerHTML = "";
 }

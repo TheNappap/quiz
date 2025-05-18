@@ -175,10 +175,8 @@ async fn start(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, ) {
 
     let start = state.write().await.start();
     if let Some(e) = start {
-        if let Ok(e) = e.to_string() {
-            status(state.clone()).await;
-            sse.write().await.send_to_clients(e).await; 
-        }
+        status(state.clone()).await;
+        sse.write().await.send_to_clients(e).await;
     }
 }
 
@@ -206,10 +204,8 @@ async fn next(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, ) {
 
     let next = state.write().await.next();
     if let Some(e) = next {
-        if let Ok(e) = e.to_string() {
-            status(state.clone()).await;
-            sse.write().await.send_to_clients(e).await; 
-        }
+        status(state.clone()).await;
+        sse.write().await.send_to_clients(e).await;
     }
 }
 
@@ -228,9 +224,7 @@ async fn redo_question<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>,
     };
     let redo_event = state.write().await.redo(index);
     if let Some(e) = redo_event {
-        if let Ok(e) = e.to_string() {
-            sse.write().await.send_to_clients(e).await; 
-        }
+        sse.write().await.send_to_clients(e).await;
     }
 }
 
@@ -244,9 +238,7 @@ async fn share_ranking(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>) {
     if ungraded_answers.is_empty() {
         ranking(state.clone()).await;
         let ranking = state.read().await.ranking();
-        if let Ok(e) = Event::Ranking(ranking).to_string() {
-            sse.write().await.send_to_clients(e).await; 
-        }
+        sse.write().await.send_to_clients(Event::Ranking(ranking)).await;
     } else {
         println!("There are ungraded answers left.\nUngraded questions:{:?}",ungraded_answers);
     }
@@ -339,9 +331,7 @@ async fn import_backup<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>,
         Ok(ev) => { 
             println!("Succesfully imported: {:?}", path);
             if let Some(ev) = ev {
-                if let Ok(ev) = ev.to_string() {
-                    sse.write().await.send_to_clients(ev).await; 
-                }
+                sse.write().await.send_to_clients(ev).await;
             }
         },
         Err(e) => println!("An error occurred while trying to import backup: {:?}", e),

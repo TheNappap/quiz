@@ -139,7 +139,7 @@ mod serve {
     pub async fn login_answer(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, body: Full<Bytes>) -> http::Result<Response<Body>> {
         if let Some(username) = to_string(body).await {
             if state.write().await.add_user(username.clone()).is_ok() {
-                if let Some(e) = state.read().await.lobby().and_then(|e|e.to_string().ok()) {
+                if let Some(e) = state.read().await.lobby() {
                     sse.write().await.send_to_clients(e).await;
                 }
                 return Response::builder()
@@ -192,10 +192,14 @@ mod serve {
     pub async fn last_event(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, body: Full<Bytes>) -> http::Result<Response<Body>> {
         if let Some(username) = to_string(body).await {
             if state.read().await.user_exists(&username) {
+                let last_event_json = match sse.read().await.last_event() {
+                    None => "null".to_string(),
+                    Some(event) => event.to_string(),
+                };
                 return Response::builder()
                     .status(StatusCode::OK)
                     .header("Content-Type", "text/plain")
-                    .body(full(sse.read().await.last_event()));
+                    .body(full(last_event_json));
             }
         }
         Response::builder()

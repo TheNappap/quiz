@@ -106,7 +106,7 @@ impl std::fmt::Display for QuestionType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum QuestionSendType {
     MultiChoice(Vec<String>),
     MultiOption(Vec<String>),

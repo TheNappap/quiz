@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::error::{Error, Result};
 use crate::question::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Event {
     Lobby{
         users: Vec<String>
@@ -17,12 +17,13 @@ pub enum Event {
         question_type: QuestionSendType,
     },
     Ranking(Ranking),
-    Finished
+    Finished,
+    Closed,
 }
 
 impl Event {
-    pub fn to_string(&self) -> Result<String> {
-        Ok(serde_json::to_string(self)?)
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
     }
 } 
 
@@ -68,7 +69,7 @@ impl From<Option<usize>> for Score {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ranking {
     pub max_score: usize,
     pub scores: Vec<(String,usize)>
