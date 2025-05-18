@@ -34,7 +34,7 @@ pub async fn main(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>, socket: 
             let mut connection = pin!(conn);
             
             if let Err(e) = connection.as_mut().await {
-                quiz_print!("Server error: {}", e);
+                sse_clone.write().await.log_error(e.into());
             }
             connection.as_mut().graceful_shutdown();
         });

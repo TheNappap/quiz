@@ -9,6 +9,8 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("Http error: {0}")]
     Http(#[from] http::Error),
+    #[error("Hyper error: {0}")]
+    Hyper(#[from] hyper::Error),
     #[error("Unknown error")]
     Other
 }

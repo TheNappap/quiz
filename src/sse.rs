@@ -1,19 +1,22 @@
 
 use hyper::body::{Bytes, Frame};
 use tokio::sync::mpsc;
+use crate::error::Error;
 
 type Sender = mpsc::Sender<http::Result<Frame<Bytes>>>;
 
 pub struct SSE {
     clients: Vec<Sender>,
-    last_event: String
+    last_event: String,
+    error_log: Vec<Error>,
 }
 
 impl SSE {
     pub fn new() -> Self {
         SSE { 
             clients: Vec::new(), 
-            last_event: "null".into()
+            last_event: "null".into(),
+            error_log: Vec::new(),
         }
     }
 
@@ -40,4 +43,13 @@ impl SSE {
     pub async fn close(&mut self) {
         // TODO send end quiz final event
     }
+
+    pub fn log_error(&mut self, e: Error) {
+        self.error_log.push(e);
+    }
+
+    pub fn errors(&self) -> &Vec<Error> {
+        &self.error_log
+    }
+
 }

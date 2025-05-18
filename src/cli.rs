@@ -81,6 +81,8 @@ enum QuizCommand {
         /// File to read backup from.
         file: String
     },
+    /// Prints all errors that have been logged.
+    Errors,
 }
 
 pub async fn main(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>) {
@@ -95,20 +97,21 @@ pub async fn main(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>) {
         };
 
         match quiz_args.command {
-            QuizCommand::Exit       => break,
-            QuizCommand::Status       => status(state.clone()).await,
-            QuizCommand::Questions       => questions(state.clone()).await,
-            QuizCommand::Users       => users(state.clone()).await,
-            QuizCommand::Start       => start(state.clone(),sse.clone()).await,
-            QuizCommand::Next       => next(state.clone(),sse.clone()).await,
-            QuizCommand::Lock       => lock_question(state.clone()).await,
+            QuizCommand::Exit               => break,
+            QuizCommand::Status             => status(state.clone()).await,
+            QuizCommand::Questions          => questions(state.clone()).await,
+            QuizCommand::Users              => users(state.clone()).await,
+            QuizCommand::Start              => start(state.clone(),sse.clone()).await,
+            QuizCommand::Next               => next(state.clone(),sse.clone()).await,
+            QuizCommand::Lock               => lock_question(state.clone()).await,
             QuizCommand::Redo { id } => redo_question(state.clone(),sse.clone(), id).await,
-            QuizCommand::Ranking    => ranking(state.clone()).await,
-            QuizCommand::Share      => share_ranking(state.clone(),sse.clone()).await,
+            QuizCommand::Ranking            => ranking(state.clone()).await,
+            QuizCommand::Share              => share_ranking(state.clone(),sse.clone()).await,
             QuizCommand::Qsumm { id } => qsumm(state.clone(), id, false).await,
             QuizCommand::Grade { id } => qsumm(state.clone(), id, true).await,
             QuizCommand::Backup { file } => backup(state.clone(), file).await,
             QuizCommand::Import { file } => import_backup(state.clone(),sse.clone(), file).await,
+            QuizCommand::Errors             => errors(sse.clone()).await,
         }
     }
     sse.write().await.close().await;
@@ -342,5 +345,12 @@ async fn import_backup<'a>(state: Arc<RwLock<QuizState>>, sse: Arc<RwLock<SSE>>,
             }
         },
         Err(e) => println!("An error occurred while trying to import backup: {:?}", e),
+    }
+}
+
+async fn errors(sse: Arc<RwLock<SSE>>) {
+    println!("Server Errors:");
+    for error in sse.read().await.errors() {
+        println!("{}", error);
     }
 }
