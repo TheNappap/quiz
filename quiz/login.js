@@ -1,14 +1,9 @@
 
 import { onError } from "./utils.js"
-import { onEventError,onEventMessage,fetchLatestEvent } from "./event.js"
+import { createEventSource, fetchLatestEvent } from "./event.js"
 
 function onLogin(username) {
-	var evtSource = new EventSource('/sse');
-	evtSource.onmessage = onEventMessage;
-	evtSource.onerror = onEventError;
-	window.onbeforeunload = function(){
-	   evtSource.onerror = function(){}
-	}
+	createEventSource();
 	window.localStorage.setItem('Quiz_username', username);
 	document.getElementById("login_frame").style.display = "none";
 	document.getElementById("user").innerHTML = "Username: "+username;
@@ -33,6 +28,7 @@ export function login(){
     xmlHttp.onreadystatechange = function() {
         if (xmlHttp.readyState == 4) {
 			if (xmlHttp.status == 202) {
+				console.log("Logged in: " + xmlHttp.responseText);
 				onLogin(xmlHttp.responseText);
 			} else {
 				onLoginFailed(xmlHttp.responseText);

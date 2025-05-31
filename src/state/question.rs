@@ -26,7 +26,7 @@ impl GradeRange {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Question {
     title: String,
     image: Option<PathBuf>,
@@ -123,7 +123,7 @@ impl From<&QuestionType> for QuestionSendType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Answer {
     user: String,
     question: String,

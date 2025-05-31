@@ -1,31 +1,16 @@
 
 import { onError,onInfo } from "./utils.js"
 
-export function onEventError(ev) {
-	console.log("SSE Error:");
-	console.log(ev);
-}
+var eventSource;
 
-export function onEventMessage(ev) {
-	onError("");
-	onInfo("");
-	console.log("Received event: " + JSON.stringify(ev));
-
-	document.getElementById("image").innerHTML = "";
-	var data = JSON.parse(ev.data);
-	if (data.Lobby) {
-		onLobby(data.Lobby);
-	} else if (data.Question) {
-		onQuestion(data.Question);
-	} else if (data.Ranking) {
-		onRanking(data.Ranking);
-	} else if (data == "Finished") {
-		onFinished();
-	} else if (data == "Closed") {
-		onClosed();
-	} else {
-		console.log("Unknown event: " + ev.data);
+export function createEventSource() {
+	eventSource = new EventSource('/sse');
+	eventSource.onmessage = onEventMessage;
+	eventSource.onerror = onEventError;
+	window.onbeforeunload = function(){
+		eventSource.onerror = function(){}
 	}
+	fetchLatestEvent();
 }
 
 export function fetchLatestEvent() {
@@ -46,6 +31,34 @@ export function fetchLatestEvent() {
     }
     xmlHttp.open("POST", "/last_event");
     xmlHttp.send(username);
+}
+
+function onEventError(ev) {
+	console.log("SSE Error:");
+	console.log(ev);
+}
+
+function onEventMessage(ev) {
+	onError("");
+	onInfo("");
+
+	document.getElementById("image").innerHTML = "";
+
+	var data = JSON.parse(ev.data);
+	console.log("Received event: " + JSON.stringify(data));
+	if (data.Lobby) {
+		onLobby(data.Lobby);
+	} else if (data.Question) {
+		onQuestion(data.Question);
+	} else if (data.Ranking) {
+		onRanking(data.Ranking);
+	} else if (data == "Finished") {
+		onFinished();
+	} else if (data == "Closed") {
+		onClosed();
+	} else {
+		console.log("Unknown event: " + ev.data);
+	}
 }
 
 function onLobby(lobby) {
@@ -208,4 +221,6 @@ function onClosed() {
 	document.getElementById("sub_title").innerHTML = "Quiz server has been closed...";
 	document.getElementById("q_nr").innerHTML = "";
 	document.getElementById("main_frame").innerHTML = "";
+	eventSource.close();
+	window.localStorage.removeItem('Quiz_username');
 }

@@ -15,4 +15,14 @@ pub enum Error {
     Other
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type QuizResult<T> = Result<T, Error>;
+
+pub trait IntoQuizResult<T> {
+    fn into_result(self) -> QuizResult<T>;
+}
+
+impl<T> IntoQuizResult<T> for http::Result<T> {
+    fn into_result(self) -> QuizResult<T> {
+        Ok(self?)
+    }
+}
