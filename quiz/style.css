@@ -26,16 +26,24 @@ body{
 	line-height:1; font:normal 0.9em/1em 'Muli', sans-serif;
 } 
 h1{
-	font:normal bold 2em/1.8em 'Courier', sans-serif;text-align:center;background:#4CAF50;color:white;padding:0 15px;width:auto
+	font:normal bold 2em/1.8em 'Courier', sans-serif;text-align:center;background:#4CAF50;color:white;padding:0 15px;width:auto;
 }
 h2{
 	display:table;font:italic bold 1.3em/1.2em sans-serif;padding:5px 15px 15px;margin-left:auto;margin-right:auto;
 }
 div#frame{
-	display:block;margin:0;height:100%
+	display:block;margin:0;height:100vh;width:100vw;
 } 
-div#sub_frame,div#title_frame,div#login_frame,div#main_frame,div#image,div#error,div#info{
-	padding:20px;display:table;margin-left:auto;margin-right:auto;width:fit-content;
+div#sub_frame,div#title_frame,div#login_frame,div#main_frame,div#error,div#info{
+	padding:10px;display:table;margin-left:auto;margin-right:auto;
+}
+div#image{
+	padding-top:20px;display:block;margin-left:auto;margin-right:auto;width:fit-content;
+}
+div#image img{
+    max-width: 100vw;
+    max-height: 100%;
+    object-fit: contain;
 }
 div#login_frame{
 	display:none;
