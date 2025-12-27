@@ -3,6 +3,24 @@ use tokio::io::{self, AsyncBufReadExt, BufReader};
 
 use crate::{server::SseService, state::{Event, QuizStateService, QuizStatus, Ranking, Score}};
 
+async fn yes_no_question(message: &str) -> bool {
+    loop {
+        use std::io::Write;
+        print!("{} (y/n)> ", message);
+        std::io::stdout().flush().expect("Output flush failed");
+        let mut s = String::new();
+        BufReader::new(io::stdin()).read_line(&mut s).await.expect("Did not enter a correct string");
+        match s.trim() {
+            "y" => return true,
+            "n" => return false,
+            _   => println!("Answer y or n"),
+        }
+    }
+}
+
+fn unquote(string: &mut String) {
+    *string = string.trim_matches(['"','`','\'']).to_owned();
+}
 
 pub async fn status(state: QuizStateService) {
     print!("status: ");
@@ -31,34 +49,19 @@ pub async fn questions(state: QuizStateService) {
 }
 
 pub async fn users(state: QuizStateService) {
-    let mut table = Table::new("\t{:<}");
-    table.add_heading("\tUsers:");
-    for user in state.users().await {
-        table.add_row(Row::new().with_cell(format!("`{}`", user)));
+    let mut table = Table::new("\t{:<} {:>}");
+    table.add_row(Row::new().with_cell("Users").with_cell("Bonus"));
+    for (user, bonus) in state.users().await {
+        table.add_row(Row::new().with_cell(format!("`{}`", user)).with_cell(bonus));
     }
     println!("{}", table);
 }
 
 pub async fn remove_user(state: QuizStateService, mut user: String) {
-    user = user.trim_matches(['"','`','\'']).to_owned();
+    unquote(&mut user);
     match state.remove_user(&user).await {
         Ok(_) => println!("Succesfully removed user: {}", user),
         Err(e) => println!("An error occurred while trying to remove user: {}", e),
-    }
-}
-
-async fn yes_no_question(message: &str) -> bool {
-    loop {
-        use std::io::Write;
-        print!("{} (y/n)> ", message);
-        std::io::stdout().flush().expect("Output flush failed");
-        let mut s = String::new();
-        BufReader::new(io::stdin()).read_line(&mut s).await.expect("Did not enter a correct string");
-        match s.trim() {
-            "y" => return true,
-            "n" => return false,
-            _   => println!("Answer y or n"),
-        }
     }
 }
 
@@ -230,11 +233,19 @@ pub async fn grade(state: QuizStateService,user: &String, question: &String, ran
     }
 }
 
+pub async fn add_bonus(state: QuizStateService, mut user: String, bonus: i32) {
+    unquote(&mut user);
+    match state.add_bonus(&user, bonus).await {
+        Ok(_) => println!("Bonus was added successfully"),
+        Err(e) => println!("An error occurred while trying to add bonus: {}", e),
+    }
+}
+
 pub async fn backup(state: QuizStateService, file: String) {
     let path = file.into();
     match state.backup(&path).await {
         Ok(_) => println!("Backup created: {:?}", path),
-        Err(e) => println!("An error occurred while trying to backup: {:?}", e),
+        Err(e) => println!("An error occurred while trying to backup: {}", e),
     }
 }
 

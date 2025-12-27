@@ -13,7 +13,7 @@ pub enum QuizStateJob {
     Title(Return<String>),
     Status(Return<QuizStatus>),
     UserCount(Return<usize>),
-    Users(Return<Vec<String>>),
+    Users(Return<Vec<(String, i32)>>),
     UserExists(String, Return<bool>),
     Lobby(Return<Option<Event>>),
     AddUser(String, Return<QuizResult<()>>),
@@ -30,6 +30,7 @@ pub enum QuizStateJob {
     LockQuestion,
     Redo(usize, Return<Option<Event>>),
     SubmitAnswer(Answer, Return<Result<String,String>>),
+    Bonus(String, i32, Return<QuizResult<()>>),
     Backup(PathBuf, Return<QuizResult<()>>),
     ImportBackup(PathBuf, Return<QuizResult<Option<Event>>>),
 }
@@ -68,7 +69,7 @@ impl QuizStateService {
         recv.await.expect("Receive failed")
     }
 
-    pub async fn users(&self) -> Vec<String> {
+    pub async fn users(&self) -> Vec<(String, i32)> {
         let (send, recv) = oneshot::channel();
         self.job_channel.send(QuizStateJob::Users(send)).await.expect("Send failed");
         recv.await.expect("Receive failed")
@@ -166,6 +167,12 @@ impl QuizStateService {
     pub async fn submit_answer(&self, answer: &Answer) -> Result<String,String> {
         let (send, recv) = oneshot::channel();
         self.job_channel.send(QuizStateJob::SubmitAnswer(answer.clone(), send)).await.expect("Send failed");
+        recv.await.expect("Receive failed")
+    }
+    
+    pub async fn add_bonus(&self, user: &String, bonus: i32) -> QuizResult<()> {
+        let (send, recv) = oneshot::channel();
+        self.job_channel.send(QuizStateJob::Bonus(user.clone(), bonus, send)).await.expect("Send failed");
         recv.await.expect("Receive failed")
     }
 

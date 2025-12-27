@@ -53,7 +53,7 @@ impl From<Option<usize>> for Score {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ranking {
     pub max_score: usize,
-    pub scores: Vec<(String,usize)>
+    pub scores: Vec<(String,i32)>
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

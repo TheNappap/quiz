@@ -23,10 +23,22 @@ pub(super) fn create_quiz_state(root: PathBuf, config: Config, job_receiver: Rec
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct UserState {
+    answers: HashMap<String,(AnswerType, Score)>,
+    bonus_score: i32,
+}
+
+impl UserState {
+    fn new() -> Self {
+        UserState { answers: HashMap::new(), bonus_score: 0 }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct QuizState {
     config: Config,
     status: QuizStatus,
-    users: HashMap<String,HashMap<String,(AnswerType,Score)>>,
+    users: HashMap<String, UserState>,
 }
 
 #[derive(Debug)]
@@ -61,6 +73,7 @@ impl QuizStateOwner {
                     QuizStateJob::LockQuestion                                                          => self.lock_question(),
                     QuizStateJob::Redo(index, sender)                     => sender.send(self.redo(index)).unwrap(),
                     QuizStateJob::SubmitAnswer(answer, sender)  => sender.send(self.submit_answer(answer)).unwrap(),
+                    QuizStateJob::Bonus(username, bonus, sender)=> sender.send(self.add_bonus(username, bonus)).unwrap(),
                     QuizStateJob::Backup(path, sender)              => sender.send(self.backup(&path)).unwrap(),
                     QuizStateJob::ImportBackup(path, sender) => sender.send(self.import_backup(&path)).unwrap(),
                 }
@@ -84,8 +97,11 @@ impl QuizStateOwner {
         self.state.users.len()
     }
 
-    pub fn users(&self) -> Vec<String> {
-        self.state.users.keys().cloned().collect()
+    pub fn users(&self) -> Vec<(String, i32)> {
+        self.state.users.iter().map(|(username, data)|{
+                    (username.clone(), data.bonus_score)
+                })
+                .collect()
     }
 
     pub fn user_exists(&self, username: &String) -> bool {
@@ -101,7 +117,7 @@ impl QuizStateOwner {
 
     pub fn add_user(&mut self, username: String) -> QuizResult<()> {
         if !username.is_empty() && !self.user_exists(&username) {
-            self.state.users.insert(username,HashMap::new());
+            self.state.users.insert(username,UserState::new());
             Ok(())
         } else { Err(Error::Other) }
     }
@@ -125,14 +141,14 @@ impl QuizStateOwner {
     
     pub fn ranking(&self) -> Ranking {
         let max_score = self.state.config.questions().iter().fold(0,|acc,q| acc + q.max_score());
-        let mut scores: Vec<_> = self.state.users.iter().map(|(user,answers)|{
+        let mut scores: Vec<_> = self.state.users.iter().map(|(user, user_state)|{
             let score = self.state.config.questions().iter().fold(0,|acc, q| {
-                match answers.get(q.title()) {
+                match user_state.answers.get(q.title()) {
                     Some((_,Score::Grade(s))) => acc + s,
                     _ => acc
                 }
             });
-            (user.clone(),score)
+            (user.clone(), score as i32 + user_state.bonus_score)
         }).collect();
         scores.sort_by(|(_,a), (_,b)| b.cmp(a));
         Ranking{max_score,scores}
@@ -144,8 +160,8 @@ impl QuizStateOwner {
             _ => return Vec::new()
         };
         if let Some(question) = self.state.config.questions().get(cur_q) {
-            self.state.users.iter().filter(|(_,answers)|{
-                answers.get(question.title()).is_none()
+            self.state.users.iter().filter(|(_,user_state)|{
+                user_state.answers.get(question.title()).is_none()
             })
             .map(|(u,_)| u.to_string())
             .collect()
@@ -162,8 +178,8 @@ impl QuizStateOwner {
         self.state.config.questions()[0..=cur_q].iter()
                 .enumerate()
                 .filter(|(_,q)|{
-                    self.state.users.values().fold(false, |acc, answers|{
-                        acc | match answers.get(q.title()).map(|(_,s)|s.is_ungraded()) {
+                    self.state.users.values().fold(false, |acc, user_state|{
+                        acc | match user_state.answers.get(q.title()).map(|(_,s)|s.is_ungraded()) {
                             Some(u) => u,
                             None => false
                         }
@@ -177,8 +193,8 @@ impl QuizStateOwner {
         -> Option<(HashMap<String,(String,Score)>,std::ops::RangeInclusive<usize>)>
 	{
         let question = self.state.config.questions().get(index)?;
-        Some((self.state.users.iter().map(|(user,answers)|{
-            if let Some((answer,score)) = answers.get(question.title()) 
+        Some((self.state.users.iter().map(|(user,user_state)|{
+            if let Some((answer,score)) = user_state.answers.get(question.title()) 
                 { (user.clone(),(question.get_answer_string(&answer),*score)) }
             else { (user.clone(),("".to_string(),Score::Ungraded)) }
         }).collect(),question.grade_range().range()))
@@ -186,7 +202,7 @@ impl QuizStateOwner {
 
     pub fn update_grade(&mut self, user: String, question_title: String, grade: usize) {
         self.state.users.get_mut(&user)
-            .and_then(|answers| answers.get_mut(&question_title))
+            .and_then(|user_state| user_state.answers.get_mut(&question_title))
             .map(|(_,score)| *score = Score::Grade(grade));
     }
 
@@ -270,7 +286,7 @@ impl QuizStateOwner {
 
     pub fn submit_answer(&mut self, answer: Answer) -> Result<String,String> {
         let question_title = answer.question().clone();
-        if let (Some(answers),Some((index,question))) =
+        if let (Some(user_state),Some((index,question))) =
             (self.state.users.get_mut(answer.user()), self.state.config.question(&question_title)) 
         {
             match self.state.status {
@@ -280,12 +296,20 @@ impl QuizStateOwner {
                     }
                     let answer_type = answer.answer().clone();
                     let score = question.calculate_score(&answer_type).into();
-                    answers.insert( question_title, (answer_type, score) );
+                    user_state.answers.insert( question_title, (answer_type, score) );
                     Ok(self.answer_string(&answer))
                 },
                 _ => Err("Could not submit answer: no question open.".into())
             }
         } else { Err("Could not submit answer: server error.".into()) }
+    }
+    
+    pub fn add_bonus(&mut self, username: String, bonus: i32) -> QuizResult<()> {
+        let Some(user_state) = self.state.users.get_mut(&username) else {
+            return Err(Error::String(format!("User does not exist: `{}`", username)));
+        };
+        user_state.bonus_score += bonus;
+        Ok(())
     }
 
     pub fn backup(&self, path: &PathBuf) -> QuizResult<()> {

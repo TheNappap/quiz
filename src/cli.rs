@@ -25,7 +25,7 @@ enum QuizCommand {
     Exit,
     /// Prints the current status of the quiz.
     Status,
-    /// Prints the list of users.
+    /// Prints the list of users and their bonus scores.
     Users,
     /// Removes selected user.
     RemoveUser {
@@ -60,15 +60,25 @@ enum QuizCommand {
         /// Id of the question to grade.
         id: Option<usize>
     },
+    /// Adds bonus score or penalty score if negative.
+    Bonus{
+        /// User to give bonus score.
+        #[arg(value_parser=NonEmptyStringValueParser::new())]
+        user: String,
+        /// Bonus score
+        #[arg(allow_negative_numbers=true)]
+        bonus: i32,
+    },
     /// Backup the current state of the quiz.
     Backup{
         /// File to write backup to.
-        #[arg(default_value_t = String::from(".backup_quiz"))]
+        #[arg(default_value_t = String::from(".backup_quiz"), value_parser=NonEmptyStringValueParser::new())]
         file: String
     },
     /// Import a backup state of a quiz.
     Import{
         /// File to read backup from.
+        #[arg(value_parser=NonEmptyStringValueParser::new())]
         file: String
     },
 }
@@ -98,6 +108,7 @@ pub async fn start(state: QuizStateService, sse: SseService) {
             QuizCommand::Share              => command::share_ranking(state.clone(),sse.clone()).await,
             QuizCommand::Qsumm { id } => command::qsumm(state.clone(), id, false).await,
             QuizCommand::Grade { id } => command::qsumm(state.clone(), id, true).await,
+            QuizCommand::Bonus { user, bonus} => command::add_bonus(state.clone(), user, bonus).await,
             QuizCommand::Backup { file } => command::backup(state.clone(), file).await,
             QuizCommand::Import { file } => command::import_backup(state.clone(),sse.clone(), file).await,
         }
