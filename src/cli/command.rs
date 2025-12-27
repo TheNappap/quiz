@@ -34,9 +34,17 @@ pub async fn users(state: QuizStateService) {
     let mut table = Table::new("\t{:<}");
     table.add_heading("\tUsers:");
     for user in state.users().await {
-        table.add_row(Row::new().with_cell(user));
+        table.add_row(Row::new().with_cell(format!("`{}`", user)));
     }
     println!("{}", table);
+}
+
+pub async fn remove_user(state: QuizStateService, mut user: String) {
+    user = user.trim_matches(['"','`','\'']).to_owned();
+    match state.remove_user(&user).await {
+        Ok(_) => println!("Succesfully removed user: {}", user),
+        Err(e) => println!("An error occurred while trying to remove user: {}", e),
+    }
 }
 
 async fn yes_no_question(message: &str) -> bool {

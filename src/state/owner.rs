@@ -46,8 +46,9 @@ impl QuizStateOwner {
                     QuizStateJob::UserCount(sender)                                      => sender.send(self.user_count()).unwrap(),
                     QuizStateJob::Users(sender)                                    => sender.send(self.users()).unwrap(),
                     QuizStateJob::UserExists(username, sender)                    => sender.send(self.user_exists(&username)).unwrap(),
-                    QuizStateJob::Lobby(sender)                                  => sender.send(self.lobby()).unwrap(),
+                    QuizStateJob::RemoveUser(username, sender)       => sender.send(self.remove_user(username)).unwrap(),
                     QuizStateJob::AddUser(username, sender)          => sender.send(self.add_user(username)).unwrap(),
+                    QuizStateJob::Lobby(sender)                                  => sender.send(self.lobby()).unwrap(),
                     QuizStateJob::Questions(sender)                => sender.send(self.questions()).unwrap(),
                     QuizStateJob::Question(index, sender)              => sender.send(self.question(index)).unwrap(),
                     QuizStateJob::Ranking(sender)                                      => sender.send(self.ranking()).unwrap(),
@@ -90,12 +91,12 @@ impl QuizStateOwner {
     pub fn user_exists(&self, username: &String) -> bool {
         self.state.users.contains_key(username)
     }
-    
-    pub fn lobby(&self) -> Option<Event> {
-        match self.status() {
-            QuizStatus::Lobby => Some(Event::Lobby{users:self.state.users.keys().map(|s|s.clone()).collect()}),
-            _ => None
+
+    pub fn remove_user(&mut self, username: String) -> QuizResult<()> {
+        if self.state.users.remove(&username).is_none() {
+            return Err(Error::String(format!("User does not exist: `{}`", username)));
         }
+        Ok(())
     }
 
     pub fn add_user(&mut self, username: String) -> QuizResult<()> {
@@ -103,6 +104,13 @@ impl QuizStateOwner {
             self.state.users.insert(username,HashMap::new());
             Ok(())
         } else { Err(Error::Other) }
+    }
+    
+    pub fn lobby(&self) -> Option<Event> {
+        match self.status() {
+            QuizStatus::Lobby => Some(Event::Lobby{users:self.state.users.keys().map(|s|s.clone()).collect()}),
+            _ => None
+        }
     }
     
     pub fn questions(&self) -> Vec<(String,QuestionType)> {

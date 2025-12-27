@@ -3,7 +3,7 @@ mod command;
 #[macro_use]
 mod print;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, builder::NonEmptyStringValueParser};
 use tokio::io::{self, BufReader, AsyncBufReadExt};
 use crate::{server::SseService, state::QuizStateService};
 
@@ -27,6 +27,12 @@ enum QuizCommand {
     Status,
     /// Prints the list of users.
     Users,
+    /// Removes selected user.
+    RemoveUser {
+        /// User to remove.
+        #[arg(value_parser=NonEmptyStringValueParser::new())]
+        user: String
+    },
     /// Prints the list of questions.
     Questions,
     /// Starts the quiz and sets the status to the first question.
@@ -56,8 +62,8 @@ enum QuizCommand {
     },
     /// Backup the current state of the quiz.
     Backup{
-        // File to write backup to.
-        #[arg(help="File to write backup to.", default_value_t = String::from(".backup_quiz"))]
+        /// File to write backup to.
+        #[arg(default_value_t = String::from(".backup_quiz"))]
         file: String
     },
     /// Import a backup state of a quiz.
@@ -83,6 +89,7 @@ pub async fn start(state: QuizStateService, sse: SseService) {
             QuizCommand::Status             => command::status(state.clone()).await,
             QuizCommand::Questions          => command::questions(state.clone()).await,
             QuizCommand::Users              => command::users(state.clone()).await,
+            QuizCommand::RemoveUser { user } => command::remove_user(state.clone(), user).await,
             QuizCommand::Start              => command::start_event(state.clone(),sse.clone()).await,
             QuizCommand::Next               => command::next(state.clone(),sse.clone()).await,
             QuizCommand::Lock               => command::lock_question(state.clone()).await,

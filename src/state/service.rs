@@ -17,6 +17,7 @@ pub enum QuizStateJob {
     UserExists(String, Return<bool>),
     Lobby(Return<Option<Event>>),
     AddUser(String, Return<QuizResult<()>>),
+    RemoveUser(String, Return<QuizResult<()>>),
     Questions(Return<Vec<(String, QuestionType)>>),
     Question(usize, Return<Option<Question>>),
     Ranking(Return<Ranking>),
@@ -76,6 +77,12 @@ impl QuizStateService {
     pub async fn user_exists(&self, username: &String) -> bool {
         let (send, recv) = oneshot::channel();
         self.job_channel.send(QuizStateJob::UserExists(username.clone(), send)).await.expect("Send failed");
+        recv.await.expect("Receive failed")
+    }
+    
+    pub async fn remove_user(&self, username: &String) -> QuizResult<()> {
+        let (send, recv) = oneshot::channel();
+        self.job_channel.send(QuizStateJob::RemoveUser(username.clone(), send)).await.expect("Send failed");
         recv.await.expect("Receive failed")
     }
 
