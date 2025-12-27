@@ -288,6 +288,9 @@ impl QuizStateOwner {
     pub fn import_backup(&mut self, path: &PathBuf) -> QuizResult<Option<Event>> {
         let data = std::fs::read_to_string(path)?;
         let state: QuizState = serde_json::from_str(&data)?;
+        if self.state.users.keys().collect::<Vec<_>>() != state.users.keys().collect::<Vec<_>>() {
+            return Err(Error::String("Current users and imported users do not match".into()));
+        }
         self.state = state;
         Ok(match &self.state.status {
             QuizStatus::Question{id,..} => self.question_event(*id),

@@ -220,6 +220,6 @@ pub async fn import_backup(state: QuizStateService, sse: SseService, file: Strin
                 sse.send_event(ev).await;
             }
         },
-        Err(e) => println!("An error occurred while trying to import backup: {:?}", e),
+        Err(e) => println!("An error occurred while trying to import backup: {}", e),
     }
 }

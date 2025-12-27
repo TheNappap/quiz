@@ -11,6 +11,8 @@ pub enum Error {
     Http(#[from] http::Error),
     #[error("Hyper error: {0}")]
     Hyper(#[from] hyper::Error),
+    #[error("{0}")]
+    String(String),
     #[error("Unknown error")]
     Other
 }
