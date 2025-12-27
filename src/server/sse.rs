@@ -47,7 +47,7 @@ pub fn create_sse_state(job_receiver: Receiver<SseJob>) {
         let sse = SseState { 
             clients: Vec::new(), 
             last_event: None,
-            error_log: Vec::new(),
+            _error_log: Vec::new(),
         };
 
         sse.handle_jobs(job_receiver).await
@@ -57,7 +57,7 @@ pub fn create_sse_state(job_receiver: Receiver<SseJob>) {
 struct SseState {
     clients: Vec<Client>,
     last_event: Option<Event>,
-    error_log: Vec<Error>,
+    _error_log: Vec<Error>,
 }
 
 impl SseState {
