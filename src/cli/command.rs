@@ -39,6 +39,21 @@ pub async fn users(state: QuizStateService) {
     println!("{}", table);
 }
 
+async fn yes_no_question(message: &str) -> bool {
+    loop {
+        use std::io::Write;
+        print!("{} (y/n)> ", message);
+        std::io::stdout().flush().expect("Output flush failed");
+        let mut s = String::new();
+        BufReader::new(io::stdin()).read_line(&mut s).await.expect("Did not enter a correct string");
+        match s.trim() {
+            "y" => return true,
+            "n" => return false,
+            _   => println!("Answer y or n"),
+        }
+    }
+}
+
 pub async fn start_event(state: QuizStateService, sse: SseService) {
     if state.user_count().await == 0 {
         println!("No users logged in yet.");
@@ -47,17 +62,8 @@ pub async fn start_event(state: QuizStateService, sse: SseService) {
     if !state.status().await.is_lobby() { return }
 
     users(state.clone()).await;
-    loop {
-        use std::io::Write;
-        print!("Do you want to start the quiz? (y/n)> ");
-        std::io::stdout().flush().expect("Output flush failed");
-        let mut s = String::new();
-        BufReader::new(io::stdin()).read_line(&mut s).await.expect("Did not enter a correct string");
-        match s.trim() {
-            "y" => break,
-            "n" => return,
-            _   => println!("Answer y or n"),
-        }
+    if !yes_no_question("Do you want to start the quiz?").await {
+        return;
     }
 
     let start = state.start().await;
@@ -67,7 +73,7 @@ pub async fn start_event(state: QuizStateService, sse: SseService) {
     }
 }
 
-pub async fn all_answered_current_question(state: QuizStateService) -> bool {
+pub async fn continue_on_all_answered(state: QuizStateService) -> bool {
     let no_answer_users = state.no_answer_users().await;
     if no_answer_users.is_empty() {
         true
@@ -79,13 +85,16 @@ pub async fn all_answered_current_question(state: QuizStateService) -> bool {
                 table.add_row(Row::new().with_cell(user));
             }
             println!("{}", table);
+            if yes_no_question("Do you want to continue anyway?").await {
+                return true;
+            }
         }
         false
     }
 }
 
 pub async fn next(state: QuizStateService, sse: SseService) {
-    if !all_answered_current_question(state.clone()).await {
+    if !continue_on_all_answered(state.clone()).await {
         return
     }
 
@@ -96,7 +105,7 @@ pub async fn next(state: QuizStateService, sse: SseService) {
 }
 
 pub async fn lock_question(state: QuizStateService) {
-    if !all_answered_current_question(state.clone()).await {
+    if !continue_on_all_answered(state.clone()).await {
         return
     }
     state.lock_question().await;
@@ -116,7 +125,7 @@ pub async fn redo_question(state: QuizStateService, sse: SseService, id: Option<
 
 pub async fn share_ranking(state: QuizStateService, sse: SseService) {
     if state.status().await.is_lobby() { return }
-    if !all_answered_current_question(state.clone()).await {
+    if !continue_on_all_answered(state.clone()).await {
         return
     }
 
@@ -143,6 +152,10 @@ pub async fn ranking(state: QuizStateService) {
 }
 
 pub async fn qsumm(state: QuizStateService, id: Option<usize>, do_grade: bool) {
+    if do_grade && !continue_on_all_answered(state.clone()).await {
+        return;
+    }
+
     let index = match id {
         Some(index) => index,
         None => if let Some(index) = state.status().await.question() { index } 
@@ -171,8 +184,9 @@ pub async fn qsumm(state: QuizStateService, id: Option<usize>, do_grade: bool) {
                     });
             if do_grade {
                 println!("{}", table_head.clone().with_row(row.clone()));
-                let new_grade = grade(state.clone(), &user, &title, score_range.clone()).await;
-                row = row_head.with_cell(format!("{}/{}",new_grade,score_range.end()))
+                if let Some(new_grade) = grade(state.clone(), &user, &title, score_range.clone()).await {
+                    row = row_head.with_cell(format!("{}/{}",new_grade,score_range.end()))
+                }
             }
             table.add_row(row);
         }
@@ -180,14 +194,19 @@ pub async fn qsumm(state: QuizStateService, id: Option<usize>, do_grade: bool) {
     }
 }
 
-pub async fn grade(state: QuizStateService,user: &String, question: &String, range: std::ops::RangeInclusive<usize>) -> usize {
+pub async fn grade(state: QuizStateService,user: &String, question: &String, range: std::ops::RangeInclusive<usize>) -> Option<usize> {
     loop {
         use std::io::Write;
-        print!("Grade (range: {},...,{})> ",range.start(),range.end());
+        print!("Grade (range: {},...,{} or `skip`)> ",range.start(),range.end());
         std::io::stdout().flush().expect("Output flush failed");
         let mut s = String::new();
         BufReader::new(io::stdin()).read_line(&mut s).await.expect("Did not enter a correct string");
-        let result = s.trim().parse::<usize>()
+        let s = s.trim();
+        if s == "skip" {
+            return None;
+        }
+
+        let result = s.parse::<usize>()
             .map_err(|e| e.to_string())
             .and_then(|s|{
                 if range.contains(&s) { Ok(s) }
@@ -196,7 +215,7 @@ pub async fn grade(state: QuizStateService,user: &String, question: &String, ran
         match result {
             Ok(s) => {
                 state.update_grade(user, question, s).await;
-                return s;
+                return Some(s);
             },
             Err(e) => println!("{}",e),
         }
