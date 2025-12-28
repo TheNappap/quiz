@@ -162,10 +162,23 @@ pub async fn ranking(state: QuizStateService) {
     println!("{}", table);
 }
 
-pub async fn qsumm(state: QuizStateService, id: Option<usize>, do_grade: bool) {
-    if do_grade && !continue_on_all_answered(state.clone()).await {
-        return;
+pub async fn grade(state: QuizStateService, id: Option<usize>) {
+    match id {
+        Some(id) => qsumm(state, Some(id), true).await,
+        None => {
+            for i in state.ungraded_answers().await {
+                if !yes_no_question(&format!("Next question: {}! Do you want to continue grading?", i)).await {
+                    return;
+                }
+                qsumm(state.clone(), Some(i), true).await
+            }
+            println!("All answers are graded.");
+        }
     }
+}
+
+pub async fn qsumm(state: QuizStateService, id: Option<usize>, do_grade: bool) {
+    assert!(!do_grade || !id.is_none());
 
     let index = match id {
         Some(index) => index,
@@ -195,7 +208,7 @@ pub async fn qsumm(state: QuizStateService, id: Option<usize>, do_grade: bool) {
                     });
             if do_grade {
                 println!("{}", table_head.clone().with_row(row.clone()));
-                if let Some(new_grade) = grade(state.clone(), &user, &title, score_range.clone()).await {
+                if let Some(new_grade) = grade_answer(state.clone(), &user, &title, score_range.clone()).await {
                     row = row_head.with_cell(format!("{}/{}",new_grade,score_range.end()))
                 }
             }
@@ -205,7 +218,7 @@ pub async fn qsumm(state: QuizStateService, id: Option<usize>, do_grade: bool) {
     }
 }
 
-pub async fn grade(state: QuizStateService,user: &String, question: &String, range: std::ops::RangeInclusive<usize>) -> Option<usize> {
+async fn grade_answer(state: QuizStateService,user: &String, question: &String, range: std::ops::RangeInclusive<usize>) -> Option<usize> {
     loop {
         use std::io::Write;
         print!("Grade (range: {},...,{} or `skip`)> ",range.start(),range.end());

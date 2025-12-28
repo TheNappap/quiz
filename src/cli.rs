@@ -55,9 +55,9 @@ enum QuizCommand {
         /// Id of the question to summarize.
         id: Option<usize>
     },
-    /// Grade question. Give a question id or use the current question.
+    /// Grade question. Give a question id or grade all with ungraded answers.
     Grade{
-        /// Id of the question to grade.
+        /// Id of the question to grade. Grading all with ungraded answers if none given.
         id: Option<usize>
     },
     /// Adds bonus score or penalty score if negative.
@@ -107,7 +107,7 @@ pub async fn start(state: QuizStateService, sse: SseService) {
             QuizCommand::Ranking            => command::ranking(state.clone()).await,
             QuizCommand::Share              => command::share_ranking(state.clone(),sse.clone()).await,
             QuizCommand::Qsumm { id } => command::qsumm(state.clone(), id, false).await,
-            QuizCommand::Grade { id } => command::qsumm(state.clone(), id, true).await,
+            QuizCommand::Grade { id } => command::grade(state.clone(), id).await,
             QuizCommand::Bonus { user, bonus} => command::add_bonus(state.clone(), user, bonus).await,
             QuizCommand::Backup { file } => command::backup(state.clone(), file).await,
             QuizCommand::Import { file } => command::import_backup(state.clone(),sse.clone(), file).await,
